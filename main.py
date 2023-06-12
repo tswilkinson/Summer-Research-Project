@@ -62,7 +62,6 @@ cor_var = (cor_size**2)*m.rbf.variance/((M**2)*n)
 PriorCov_BB = k.K(Z_BB,Z_BB) + cor_var*np.matmul(PS_weight,PS_weight.T)
 PriorCov_observed = PriorCov_BB[data_filter,:][:,data_filter]
 (PriorCov_eigvals,PriorCov_eigvecs) = np.linalg.eigh(PriorCov_observed)
-print(PriorCov_BB[1:10,1:10])
 print(min(PriorCov_eigvals),max(PriorCov_eigvals))
 print()
 
@@ -77,14 +76,15 @@ for i in range(n):
 
 func = lambda l: 1/(l+sigma_sq)
 the_diag = np.diag(func(PriorCov_eigvals))
-mean_left = np.matmul(K_Lm_n,the_diag)
+K_Lm_ms = np.matmul(K_Lm_n,PriorCov_eigvecs)
+mean_left = np.matmul(K_Lm_ms,the_diag)
 mean_right = np.matmul(PriorCov_eigvecs.T,Y)
 
 for m in range(50,n+1,50):
     print("m = ",m)
     mean_left_m = mean_left[:,n-m:]
     mean_right_m = mean_right[n-m:]
-    K_Lm_m = K_Lm_n[:,n-m:]
+    K_Lm_m = K_Lm_ms[:,n-m:]
 
     meanLm = np.matmul(mean_left_m,mean_right_m)
     covLm = K_Lm_Lm - np.matmul(mean_left_m,K_Lm_m.T)
