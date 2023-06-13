@@ -59,7 +59,7 @@ for i in range(n):
 M=np.mean(abs(PS_weight[data_filter]))
 cor_var = (cor_size**2)*m.rbf.variance/((M**2)*n)
 
-PriorCov_BB = k.K(Z_BB,Z_BB) + cor_var*np.matmul(PS_weight,PS_weight.T)
+PriorCov_BB = k.K(Z_BB,Z_BB) # + cor_var*np.matmul(PS_weight,PS_weight.T)
 PriorCov_observed = PriorCov_BB[data_filter,:][:,data_filter]
 (PriorCov_eigvals,PriorCov_eigvecs) = np.linalg.eigh(PriorCov_observed)
 print(min(PriorCov_eigvals),max(PriorCov_eigvals))
