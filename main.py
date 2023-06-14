@@ -4,14 +4,17 @@ from scipy.linalg import solve_triangular
 from sklearn.linear_model import LogisticRegression
 
 cor_size = 0.2
+jitter = 1e-9
 PS_bound = 0.1
 num_post = 2000
 cred = 0.95
 
-d=100
+d=34
 n=500
 sig_n = 1.0
 
+#def prop_score(x):
+#    return 0.5
 def prop_score(x):
     if isinstance(x,(list,np.ndarray)):
         if len(x)>=5:
@@ -21,6 +24,8 @@ def prop_score(x):
             else:
                 return 0.0
 
+#def mreg(x,r):
+#    return (2+r)*np.linalg.norm(x)
 def mreg(x,r):
     if isinstance(x,(list,np.ndarray)):
         if len(x)>=5:
@@ -42,6 +47,7 @@ k = GPy.kern.RBF(d+1,active_dims=list(range(d+1)),name='rbf',ARD=True)
 m = GPy.models.GPRegression(Z,Y,k)
 m.optimize()
 sigma_sq = m.Gaussian_noise.variance
+print(sigma_sq)
 
 Z_BB = np.hstack((np.repeat(X,2,axis=0),np.asarray([0.0,1.0]*n).reshape(2*n,1)))
 data_filter = [False]*(2*n)
@@ -59,7 +65,12 @@ for i in range(n):
 M=np.mean(abs(PS_weight[data_filter]))
 cor_var = (cor_size**2)*m.rbf.variance/((M**2)*n)
 
-PriorCov_BB = k.K(Z_BB,Z_BB) # + cor_var*np.matmul(PS_weight,PS_weight.T)
+PriorCov_BB = k.K(Z_BB,Z_BB) + cor_var*np.matmul(PS_weight,PS_weight.T)
+PriorCov_eig = np.real(min(np.linalg.eigvals(PriorCov_BB)))
+print(PriorCov_eig)
+if PriorCov_eig < jitter:
+    PriorCov_BB = PriorCov_BB + (jitter - PriorCov_eig)*np.eye(2*n)
+
 PriorCov_observed = PriorCov_BB[data_filter,:][:,data_filter]
 (PriorCov_eigvals,PriorCov_eigvecs) = np.linalg.eigh(PriorCov_observed)
 print(min(PriorCov_eigvals),max(PriorCov_eigvals))
@@ -73,6 +84,10 @@ for i in range(n):
     for j in range(i+1):
         K_Lm_Lm[i,j] = PriorCov_BB[2*i+1,2*j+1]-PriorCov_BB[2*i+1,2*j]-PriorCov_BB[2*i,2*j+1]+PriorCov_BB[2*i,2*j]
         K_Lm_Lm[j,i] = K_Lm_Lm[i,j]
+
+min_eig = np.real(min(np.linalg.eigvals(K_Lm_Lm)))
+if min_eig < jitter:
+    K_Lm_Lm = K_Lm_Lm + (jitter - min_eig)*np.eye(n)
 
 func = lambda l: 1/(l+sigma_sq)
 the_diag = np.diag(func(PriorCov_eigvals))
