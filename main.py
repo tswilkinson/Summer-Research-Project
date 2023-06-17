@@ -9,7 +9,7 @@ PS_bound = 0.1
 num_post = 2000
 cred = 0.95
 
-d=34
+d=5
 n=500
 sig_n = 1.0
 
