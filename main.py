@@ -13,26 +13,26 @@ d=5
 n=500
 sig_n = 1.0
 
-#def prop_score(x):
-#    return 0.5
 def prop_score(x):
-    if isinstance(x,(list,np.ndarray)):
-        if len(x)>=5:
-            val = x[0]+(x[1]-0.5)**2 + x[2]**2 - 2*np.sin(2*x[3]) + np.exp(-x[4]) - np.exp(-1.0) + 1.0/6.0
-            if val > 0:
-                return 1.0
-            else:
-                return 0.0
+    return 0.5
+#def prop_score(x):
+#    if isinstance(x,(list,np.ndarray)):
+#        if len(x)>=5:
+#            val = x[0]+(x[1]-0.5)**2 + x[2]**2 - 2*np.sin(2*x[3]) + np.exp(-x[4]) - np.exp(-1.0) + 1.0/6.0
+#            if val > 0:
+#                return 1.0
+#            else:
+#                return 0.0
 
-#def mreg(x,r):
-#    return (2+r)*np.linalg.norm(x)
 def mreg(x,r):
-    if isinstance(x,(list,np.ndarray)):
-        if len(x)>=5:
-            val = np.exp(-x[0])+x[1]**2+x[2]+np.cos(x[4]) + r*(1+2*x[1]*x[4])
-            if x[3]>0:
-                val = val+1.0
-            return val
+    return np.linalg.norm(x)^3.4+r
+#def mreg(x,r):
+#    if isinstance(x,(list,np.ndarray)):
+#        if len(x)>=5:
+#            val = np.exp(-x[0])+x[1]**2+x[2]+np.cos(x[4]) + r*(1+2*x[1]*x[4])
+#            if x[3]>0:
+#                val = val+1.0
+#            return val
 
 X = np.random.normal(0,1,(n,d))
 R = np.asarray([np.random.binomial(1,prop_score(X[i,:]),1) for i in range(n)])
