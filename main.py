@@ -1,7 +1,9 @@
 import numpy as np
 import GPy
 from scipy.linalg import solve_triangular
+import scipy.integrate as integrate
 from sklearn.linear_model import LogisticRegression
+import itertools
 from itertools import chain
 
 cor_size = 0.2
@@ -11,10 +13,9 @@ num_sims = 100
 num_post = 2000
 cred = 0.95
 
-d=2
+d=3
 n=500
 sig_n = 1.0
-ATE_true = 3.0
 
 # for each m, keep cumulative sum of absolute error for mean, squared error for mean,
 # 95% credible interval width, squared 95% credible interval width.
@@ -22,7 +23,7 @@ ATE_true = 3.0
 ATE_stats = np.zeros((n,6))
 
 def prop_score(x):
-    return np.exp(-np.linalg.norm(x)**2)
+    return 0.3+0.2*(x[0]+x[1])
 #def prop_score(x):
 #    if isinstance(x,(list,np.ndarray)):
 #        if len(x)>=5:
@@ -33,7 +34,7 @@ def prop_score(x):
 #                return 0.0
 
 def mreg(x,r):
-    return np.linalg.norm(x[0])**3.7+np.linalg.norm(x[1])**1.3+3*r
+    return np.linalg.norm(x-np.array([0.4,0.45,0.5]))**1.7 + r*(1+0.5*np.cos(2*np.pi*x[2]))
 #def mreg(x,r):
 #    if isinstance(x,(list,np.ndarray)):
 #        if len(x)>=5:
@@ -42,8 +43,12 @@ def mreg(x,r):
 #                val = val+1.0
 #            return val
 
+ATE_true = 1.0
+print("ATE = ",ATE_true)
+print()
+
 for run in range(num_sims):
-    X = np.random.normal(0,1,(n,d))
+    X = np.random.uniform(0,1,(n,d))
     R = np.asarray([np.random.binomial(1,prop_score(X[i,:]),1) for i in range(n)])
     Y = np.asarray([mreg(X[i,:],R[i]) + sig_n*np.random.normal(0,1) for i in range(n)])
     Z = np.column_stack((X,R))
