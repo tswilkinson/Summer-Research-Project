@@ -9,11 +9,11 @@ from itertools import chain
 cor_size = 0.2
 jitter = 1e-9
 PS_bound = 0.1
-num_sims = 100
+num_sims = 500
 num_post = 2000
 cred = 0.95
 
-d=3
+d=10
 n=500
 sig_n = 1.0
 
@@ -34,7 +34,8 @@ def prop_score(x):
 #                return 0.0
 
 def mreg(x,r):
-    return np.linalg.norm(x-np.array([0.4,0.45,0.5]))**1.7 + r*(1+0.5*np.cos(2*np.pi*x[2]))
+    return np.linalg.norm(x-np.array([0.4,0.45,0.5,0.33,0.78,0.1,0.38,0.5,0.5,0.6]))**1.7
+                     + r*(1+0.5*np.cos(2*np.pi*x[2]))
 #def mreg(x,r):
 #    if isinstance(x,(list,np.ndarray)):
 #        if len(x)>=5:
@@ -109,7 +110,21 @@ for run in range(num_sims):
     mean_left = np.matmul(K_Lm_ms,the_diag)
     mean_right = np.matmul(PriorCov_eigvecs.T,Y)
 
-    for m in chain(range(1,21),range(n,n+1)):
+    meanLm_n = np.matmul(mean_left,mean_right)
+    covLm_n = K_Lm_Lm - np.matmul(mean_left,K_Lm_ms.T)
+
+    Chol_Lm_n = np.linalg.cholesky(covLm_n)
+    ATE_n = np.zeros(num_post)
+    for i in range(num_post):
+        DP_weights = np.random.exponential(1,n)
+        DP_weights = DP_weights/sum(DP_weights)
+        GP_draw = meanLm + np.matmul(Chol_lm_n,np.random.normal(0,1,(n,1)))
+        ATE_n[i] = np.dot(DP_weights,GP_draw)
+
+    meanATE_n = np.mean(meanLm_n)
+    sdATE_n = np.sd(
+
+    for m in range(1,21):
         mean_left_m = mean_left[:,n-m:]
         mean_right_m = mean_right[n-m:]
         K_Lm_m = K_Lm_ms[:,n-m:]
@@ -125,24 +140,26 @@ for run in range(num_sims):
             GP_draw = meanLm + np.matmul(Chol_Lm,np.random.normal(0,1,(n,1)))
             ATE[i] = np.dot(DP_weights,GP_draw)
 
-        ATE_stats[m-1,0] += abs(np.mean(meanLm)-ATE_true)
-        ATE_stats[m-1,1] += (np.mean(meanLm)-ATE_true)**2
-        low = np.quantile(ATE,(1-cred)/2)
-        up  = np.quantile(ATE,(1+cred)/2)
-        ATE_stats[m-1,2] += up-low
-        ATE_stats[m-1,3] += (up-low)**2
-        if ATE_true >= low and ATE_true <= up:
-            ATE_stats[m-1,4] += 1
-        if low <= 0 and up >= 0:
-            ATE_stats[m-1,5] += 1
+        
 
-for m in chain(range(1,21),range(n,n+1)):
-    print("m = ",m)
-    mean_mean = ATE_stats[m-1,0]/num_sims
-    mean_standard_deviation = np.sqrt(ATE_stats[m-1,1]/num_sims-mean_mean**2)
-    print("Average absolute error of posterior mean: {} plus minus {}".format(mean_mean,mean_standard_deviation))
-    width_mean = ATE_stats[m-1,2]/num_sims
-    width_standard_deviation = np.sqrt(ATE_stats[m-1,3]/num_sims-width_mean**2)
-    print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviation))
-    print("Average coverage: {} Average Type II error: {}".format(ATE_stats[m-1,4]/num_sims,ATE_stats[m-1,5]/num_sims))
-    print()
+        #ATE_stats[m-1,0] += abs(np.mean(meanLm)-ATE_true)
+        #ATE_stats[m-1,1] += (np.mean(meanLm)-ATE_true)**2
+        #low = np.quantile(ATE,(1-cred)/2)
+        #up  = np.quantile(ATE,(1+cred)/2)
+        #ATE_stats[m-1,2] += up-low
+        #ATE_stats[m-1,3] += (up-low)**2
+        #if ATE_true >= low and ATE_true <= up:
+        #    ATE_stats[m-1,4] += 1
+        #if low <= 0 and up >= 0:
+        #    ATE_stats[m-1,5] += 1
+
+#for m in chain(range(1,21),range(n,n+1)):
+#    print("m = ",m)
+#    mean_mean = ATE_stats[m-1,0]/num_sims
+#    mean_standard_deviation = np.sqrt(ATE_stats[m-1,1]/num_sims-mean_mean**2)
+#    print("Average absolute error of posterior mean: {} plus minus {}".format(mean_mean,mean_standard_deviation))
+#    width_mean = ATE_stats[m-1,2]/num_sims
+#    width_standard_deviation = np.sqrt(ATE_stats[m-1,3]/num_sims-width_mean**2)
+#    print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviation))
+#    print("Average coverage: {} Average Type II error: {}".format(ATE_stats[m-1,4]/num_sims,ATE_stats[m-1,5]/num_sims))
+#    print()
