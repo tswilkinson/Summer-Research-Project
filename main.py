@@ -20,7 +20,13 @@ sig_n = 1.0
 # for each m, keep cumulative sum of absolute error for mean, squared error for mean,
 # 95% credible interval width, squared 95% credible interval width.
 # Also number of occurances of coverage and of Type II error
-ATE_stats = np.zeros((n,6))
+# ATE_stats = np.zeros((n,6))
+
+# for each m, keep cumulative sum of distance from sparse posterior mean to full posterior mean,
+# distance from sparse posterior standard deviation to full posterior standard deviation
+ATE_sparse_full = np.zeros((20,2))
+
+ATE_stats_n = np.zeros(6)
 
 def prop_score(x):
     return 0.3+0.2*(x[0]+x[1])
@@ -34,8 +40,8 @@ def prop_score(x):
 #                return 0.0
 
 def mreg(x,r):
-    return np.linalg.norm(x-np.array([0.4,0.45,0.5,0.33,0.78,0.1,0.38,0.5,0.5,0.6]))**1.7
-                     + r*(1+0.5*np.cos(2*np.pi*x[2]))
+    return (np.linalg.norm(x-np.array([0.4,0.45,0.5,0.33,0.78,0.1,0.38,0.5,0.5,0.6]))**1.7
+                     + r*(1+0.5*np.cos(2*np.pi*x[2])))
 #def mreg(x,r):
 #    if isinstance(x,(list,np.ndarray)):
 #        if len(x)>=5:
@@ -118,11 +124,22 @@ for run in range(num_sims):
     for i in range(num_post):
         DP_weights = np.random.exponential(1,n)
         DP_weights = DP_weights/sum(DP_weights)
-        GP_draw = meanLm + np.matmul(Chol_lm_n,np.random.normal(0,1,(n,1)))
+        GP_draw = meanLm_n + np.matmul(Chol_Lm_n,np.random.normal(0,1,(n,1)))
         ATE_n[i] = np.dot(DP_weights,GP_draw)
 
     meanATE_n = np.mean(meanLm_n)
-    sdATE_n = np.sd(
+    sdATE_n = np.std(ATE_n)
+
+    ATE_stats_n[0] += abs(meanATE_n-ATE_true)
+    ATE_stats_n[1] += (meanATE_n-ATE_true)**2
+    low = np.quantile(ATE_n,(1-cred)/2)
+    up  = np.quantile(ATE_n,(1+cred)/2)
+    ATE_stats_n[2] += up-low
+    ATE_stats_n[3] += (up-low)**2
+    if ATE_true >= low and ATE_true <= up:
+        ATE_stats_n[4] += 1
+    if low <= 0 and up >= 0:
+        ATE_stats_n[5] += 1
 
     for m in range(1,21):
         mean_left_m = mean_left[:,n-m:]
@@ -140,7 +157,8 @@ for run in range(num_sims):
             GP_draw = meanLm + np.matmul(Chol_Lm,np.random.normal(0,1,(n,1)))
             ATE[i] = np.dot(DP_weights,GP_draw)
 
-        
+        ATE_sparse_full[m-1,0] += abs(np.mean(meanLm)-np.mean(meanATE_n))
+        ATE_sparse_full[m-1,1] += abs(np.std(ATE)-sdATE_n)
 
         #ATE_stats[m-1,0] += abs(np.mean(meanLm)-ATE_true)
         #ATE_stats[m-1,1] += (np.mean(meanLm)-ATE_true)**2
@@ -163,3 +181,19 @@ for run in range(num_sims):
 #    print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviation))
 #    print("Average coverage: {} Average Type II error: {}".format(ATE_stats[m-1,4]/num_sims,ATE_stats[m-1,5]/num_sims))
 #    print()
+
+print("full posterior:")
+mean_mean = ATE_stats_n[0]/num_sims
+mean_standard_deviation = np.sqrt(ATE_stats_n[1]/num_sims-mean_mean**2)
+print("Average absolute error of posterior mean: {} plus minus {}".format(mean_mean,mean_standard_deviation))
+width_mean = ATE_stats_n[2]/num_sims
+width_standard_deviation = np.sqrt(ATE_stats_n[3]/num_sims-width_mean**2)
+print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviation))
+print("Average coverage: {} Average Type II error: {}".format(ATE_stats_n[4]/num_sims,ATE_stats_n[5]/num_sims))
+print()
+
+for m in range(1,21):
+    print("m = ",m)
+    print("average distance from sparse posterior mean to full posterior mean: ",ATE_sparse_full[m-1,0]/num_sims)
+    print("average distance from sparse posterior s.d. to full posterior s.d.: ",ATE_sparse_full[m-1,1]/num_sims)
+    print()
