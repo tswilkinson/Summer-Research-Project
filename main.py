@@ -9,12 +9,12 @@ from itertools import chain
 cor_size = 0.2
 jitter = 1e-9
 PS_bound = 0.1
-num_sims = 500
+num_sims = 200
 num_post = 2000
 cred = 0.95
 
-d=10
-n=500
+d=3
+n=1000
 sig_n = 1.0
 
 # for each m, keep cumulative sum of absolute error for mean, squared error for mean,
@@ -24,12 +24,12 @@ sig_n = 1.0
 
 # for each m, keep cumulative sum of distance from sparse posterior mean to full posterior mean,
 # distance from sparse posterior standard deviation to full posterior standard deviation
-ATE_sparse_full = np.zeros((20,2))
+ATE_sparse_full = np.zeros((30,2))
 
 ATE_stats_n = np.zeros(6)
 
 def prop_score(x):
-    return 0.3+0.2*(x[0]+x[1])
+    return 0.2+0.6*np.exp(-np.linalg.norm(x-np.array([0.5,0.5,0.5]))**2.5)
 #def prop_score(x):
 #    if isinstance(x,(list,np.ndarray)):
 #        if len(x)>=5:
@@ -40,8 +40,8 @@ def prop_score(x):
 #                return 0.0
 
 def mreg(x,r):
-    return (np.linalg.norm(x-np.array([0.4,0.45,0.5,0.33,0.78,0.1,0.38,0.5,0.5,0.6]))**1.7
-                     + r*(1+0.5*np.cos(2*np.pi*x[2])))
+    return (0.2*np.linalg.norm(x-np.array([0.4,0.45,0.5]))**3.7 + 0.3*np.linalg.norm(x-np.array([0.3,0.7,0.7]))**3.7
+                + 0.5*np.linalg.norm(x-np.array([0.8,0.6,0.33]))**3.7 + r*(1+0.5*np.cos(2*np.pi*x[2])))
 #def mreg(x,r):
 #    if isinstance(x,(list,np.ndarray)):
 #        if len(x)>=5:
@@ -55,6 +55,8 @@ print("ATE = ",ATE_true)
 print()
 
 for run in range(num_sims):
+    print("run ",run)
+
     X = np.random.uniform(0,1,(n,d))
     R = np.asarray([np.random.binomial(1,prop_score(X[i,:]),1) for i in range(n)])
     Y = np.asarray([mreg(X[i,:],R[i]) + sig_n*np.random.normal(0,1) for i in range(n)])
@@ -141,7 +143,7 @@ for run in range(num_sims):
     if low <= 0 and up >= 0:
         ATE_stats_n[5] += 1
 
-    for m in range(1,21):
+    for m in range(1,31):
         mean_left_m = mean_left[:,n-m:]
         mean_right_m = mean_right[n-m:]
         K_Lm_m = K_Lm_ms[:,n-m:]
@@ -192,7 +194,7 @@ print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviati
 print("Average coverage: {} Average Type II error: {}".format(ATE_stats_n[4]/num_sims,ATE_stats_n[5]/num_sims))
 print()
 
-for m in range(1,21):
+for m in range(1,31):
     print("m = ",m)
     print("average distance from sparse posterior mean to full posterior mean: ",ATE_sparse_full[m-1,0]/num_sims)
     print("average distance from sparse posterior s.d. to full posterior s.d.: ",ATE_sparse_full[m-1,1]/num_sims)
