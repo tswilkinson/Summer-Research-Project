@@ -1,12 +1,8 @@
 import numpy as np
 import GPy
 from scipy.linalg import solve_triangular
-import scipy.integrate as integrate
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 import itertools
-from itertools import chain
-
-#help
 
 cor_size = 0.2
 jitter = 1e-9
@@ -15,42 +11,24 @@ num_sims = 200
 num_post = 2000
 cred = 0.95
 
-d=3
-n=1000
+d=4
+n=500
 sig_n = 1.0
+
+M_upper = 20
 
 # for each m, keep cumulative sum of absolute error for mean, squared error for mean,
 # 95% credible interval width, squared 95% credible interval width.
 # Also number of occurances of coverage and of Type II error
-# ATE_stats = np.zeros((n,6))
-
-# for each m, keep cumulative sum of distance from sparse posterior mean to full posterior mean,
-# distance from sparse posterior standard deviation to full posterior standard deviation
-ATE_sparse_full = np.zeros((30,2))
+ATE_stats = np.zeros((M_upper,6))
 
 ATE_stats_n = np.zeros(6)
 
 def prop_score(x):
-    return 0.2+0.6*np.exp(-np.linalg.norm(x-np.array([0.5,0.5,0.5]))**2.5)
-#def prop_score(x):
-#    if isinstance(x,(list,np.ndarray)):
-#        if len(x)>=5:
-#            val = x[0]+(x[1]-0.5)**2 + x[2]**2 - 2*np.sin(2*x[3]) + np.exp(-x[4]) - np.exp(-1.0) + 1.0/6.0
-#            if val > 0:
-#                return 1.0
-#            else:
-#                return 0.0
+    return 0.8-0.6*np.linalg.norm(x-np.array([0.5,0.5,0.5,0.5]))
 
 def mreg(x,r):
-    return (0.2*np.linalg.norm(x-np.array([0.4,0.45,0.5]))**3.7 + 0.3*np.linalg.norm(x-np.array([0.3,0.7,0.7]))**3.7
-                + 0.5*np.linalg.norm(x-np.array([0.8,0.6,0.33]))**3.7 + r*(1+0.5*np.cos(2*np.pi*x[2])))
-#def mreg(x,r):
-#    if isinstance(x,(list,np.ndarray)):
-#        if len(x)>=5:
-#            val = np.exp(-x[0])+x[1]**2+x[2]+np.cos(x[4]) + r*(1+2*x[1]*x[4])
-#            if x[3]>0:
-#                val = val+1.0
-#            return val
+    return np.linalg.norm(x-np.array([0.5,0.5,0.5,0.5])) + r*(1+np.cos(2*np.pi*x[0]))
 
 ATE_true = 1.0
 print("ATE = ",ATE_true)
@@ -64,8 +42,8 @@ for run in range(num_sims):
     Y = np.asarray([mreg(X[i,:],R[i]) + sig_n*np.random.normal(0,1) for i in range(n)])
     Z = np.column_stack((X,R))
 
-    LR = LogisticRegression(solver='lbfgs').fit(X,np.ravel(R))
-    prop = LR.predict_proba(X)[:,1]
+    RF = RandomForestClassifier().fit(X,np.ravel(R))
+    prop = RF.predict_proba(X)[:,1]
     prop = np.asarray([max(min(prop[i],1.0-PS_bound),PS_bound) for i in range(n)])
 
     k = GPy.kern.RBF(d+1,active_dims=list(range(d+1)),name='rbf',ARD=True)
@@ -145,7 +123,7 @@ for run in range(num_sims):
     if low <= 0 and up >= 0:
         ATE_stats_n[5] += 1
 
-    for m in range(1,31):
+    for m in range(1,M_upper+1):
         mean_left_m = mean_left[:,n-m:]
         mean_right_m = mean_right[n-m:]
         K_Lm_m = K_Lm_ms[:,n-m:]
@@ -161,30 +139,16 @@ for run in range(num_sims):
             GP_draw = meanLm + np.matmul(Chol_Lm,np.random.normal(0,1,(n,1)))
             ATE[i] = np.dot(DP_weights,GP_draw)
 
-        ATE_sparse_full[m-1,0] += abs(np.mean(meanLm)-np.mean(meanATE_n))
-        ATE_sparse_full[m-1,1] += abs(np.std(ATE)-sdATE_n)
-
-        #ATE_stats[m-1,0] += abs(np.mean(meanLm)-ATE_true)
-        #ATE_stats[m-1,1] += (np.mean(meanLm)-ATE_true)**2
-        #low = np.quantile(ATE,(1-cred)/2)
-        #up  = np.quantile(ATE,(1+cred)/2)
-        #ATE_stats[m-1,2] += up-low
-        #ATE_stats[m-1,3] += (up-low)**2
-        #if ATE_true >= low and ATE_true <= up:
-        #    ATE_stats[m-1,4] += 1
-        #if low <= 0 and up >= 0:
-        #    ATE_stats[m-1,5] += 1
-
-#for m in chain(range(1,21),range(n,n+1)):
-#    print("m = ",m)
-#    mean_mean = ATE_stats[m-1,0]/num_sims
-#    mean_standard_deviation = np.sqrt(ATE_stats[m-1,1]/num_sims-mean_mean**2)
-#    print("Average absolute error of posterior mean: {} plus minus {}".format(mean_mean,mean_standard_deviation))
-#    width_mean = ATE_stats[m-1,2]/num_sims
-#    width_standard_deviation = np.sqrt(ATE_stats[m-1,3]/num_sims-width_mean**2)
-#    print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviation))
-#    print("Average coverage: {} Average Type II error: {}".format(ATE_stats[m-1,4]/num_sims,ATE_stats[m-1,5]/num_sims))
-#    print()
+        ATE_stats[m-1,0] += abs(np.mean(meanLm)-ATE_true)
+        ATE_stats[m-1,1] += (np.mean(meanLm)-ATE_true)**2
+        low = np.quantile(ATE,(1-cred)/2)
+        up  = np.quantile(ATE,(1+cred)/2)
+        ATE_stats[m-1,2] += up-low
+        ATE_stats[m-1,3] += (up-low)**2
+        if ATE_true >= low and ATE_true <= up:
+            ATE_stats[m-1,4] += 1
+        if low <= 0 and up >= 0:
+            ATE_stats[m-1,5] += 1
 
 print("full posterior:")
 mean_mean = ATE_stats_n[0]/num_sims
@@ -196,8 +160,13 @@ print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviati
 print("Average coverage: {} Average Type II error: {}".format(ATE_stats_n[4]/num_sims,ATE_stats_n[5]/num_sims))
 print()
 
-for m in range(1,31):
+for m in range(1,M_upper+1):
     print("m = ",m)
-    print("average distance from sparse posterior mean to full posterior mean: ",ATE_sparse_full[m-1,0]/num_sims)
-    print("average distance from sparse posterior s.d. to full posterior s.d.: ",ATE_sparse_full[m-1,1]/num_sims)
+    mean_mean = ATE_stats[m-1,0]/num_sims
+    mean_standard_deviation = np.sqrt(ATE_stats[m-1,1]/num_sims-mean_mean**2)
+    print("Average absolute error of posterior mean: {} plus minus {}".format(mean_mean,mean_standard_deviation))
+    width_mean = ATE_stats[m-1,2]/num_sims
+    width_standard_deviation = np.sqrt(ATE_stats[m-1,3]/num_sims-width_mean**2)
+    print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviation))
+    print("Average coverage: {} Average Type II error: {}".format(ATE_stats[m-1,4]/num_sims,ATE_stats[m-1,5]/num_sims))
     print()
