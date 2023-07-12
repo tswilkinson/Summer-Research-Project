@@ -28,7 +28,7 @@ def prop_score(x):
     return 0.8-0.6*np.linalg.norm(x-np.array([0.5,0.5,0.5,0.5]))
 
 def mreg(x,r):
-    return np.linalg.norm(x-np.array([0.5,0.5,0.5,0.5])) + r*(1+np.cos(2*np.pi*x[0]))
+    return np.linalg.norm(x-np.array([0.5,0.5,0.5,0.5])) + r*(1-np.cos(2*np.pi*x[0]))
 
 ATE_true = 1.0
 print("ATE = ",ATE_true)
