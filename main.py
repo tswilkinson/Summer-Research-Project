@@ -24,11 +24,44 @@ ATE_stats = np.zeros((M_upper,6))
 
 ATE_stats_n = np.zeros(6)
 
+x_points = np.zeros((100,10))
+x_weights = np.zeros(100)
+
+r_points = np.zeros((100,10))
+r_weights = np.zeros(100)
+
+f = open("Points and weights","r")
+for i in range(100):
+    l = f.readline()
+    (p,_,w) = l.partition(";")
+    x_strs = p.split(",")
+    for j in range(10):
+        x_points[i,j] = float(x_strs[j])
+
+    x_weights[i] = float(w)
+
+f.readline()
+
+for i in range(100):
+    l = f.readline()
+    (p,_,w) = l.partition(";")
+    r_strs = p.split(",")
+    for j in range(10):
+        r_points[i,j] = float(r_strs[j])
+
+    r_weights[i] = float(w)
+
 def prop_score(x):
-    return 0.8-0.6*np.linalg.norm(x-np.array([0.5,0.5,0.5,0.5]))
+    y = 0
+    for i in range(100):
+        y += r_weights[i]*np.linalg.norm(x-r_points[i,:])**0.3
+    return 20/(20+y)
 
 def mreg(x,r):
-    return np.linalg.norm(x-np.array([0.5,0.5,0.5,0.5])) + r*(1-np.cos(2*np.pi*x[0]))
+    y = 0
+    for i in range(100):
+        y += x_weights[i]*np.linalg.norm(x-x_points[i,:])**0.4
+    return y + r*(1-0.5*np.cos(2*np.pi*x[0]))
 
 ATE_true = 1.0
 print("ATE = ",ATE_true)
