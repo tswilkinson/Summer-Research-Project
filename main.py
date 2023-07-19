@@ -11,11 +11,11 @@ num_sims = 200
 num_post = 2000
 cred = 0.95
 
-d=4
+d=10
 n=500
 sig_n = 1.0
 
-M_upper = 20
+M_upper = 40
 
 # for each m, keep cumulative sum of absolute error for mean, squared error for mean,
 # 95% credible interval width, squared 95% credible interval width.
