@@ -154,12 +154,31 @@ for run in range(num_sims):
         ATE_stats_n[5] += 1
 
     for m in range(1,M_upper+1):
-        mean_left_m = mean_left[:,n-m:]
-        mean_right_m = mean_right[n-m:]
-        K_Lm_m = K_Lm_ms[:,n-m:]
+        inducing_variables, _ = kmeans(Z,m)
+        first_model = gpflow.models.SGPR(
+                (Z,Y),
+                kernel=gpflow.kernels.SquaredExponential(lengthscales=[1.0 for _ in range(d+1)]),
+                inducing_variable=inducing_variables
+        )
+        
+        opt = gpflow.optimizers.Scipy()
+        opt.minimize(first_model.training_loss,first_model.trainable_variables)
+        
+        sigmasq = first_model.parameters.SGPR.likelihood.variance
+        print(sigmasq)
+        cov_var = (cor_size**2)*sigmasq/((M**2)*n)
+        points = np.concatenate(Z_BB,first_model.SGPR.parameters.inducing_variable)
+        print(points)
+        mus,Ks = first_model.predict_f(points,full_cov=True)
+        Kmm = Ks[0,
+        mus = musish[:,0]
+        Knn = Knnish[0]
+        PriorCov_BB = Knn + cov_var*np.matmul(PS_weight,PS_weight.T)
+        print(Knn)
+        print(mus)
+        print(PriorCov_BB)
 
-        meanLm = np.matmul(mean_left_m,mean_right_m)
-        covLm = K_Lm_Lm - np.matmul(mean_left_m,K_Lm_m.T)
+        Sigma = np.linalg.inv(
 
         Chol_Lm = np.linalg.cholesky(covLm)
         ATE = np.zeros(num_post)

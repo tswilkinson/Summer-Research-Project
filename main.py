@@ -1,7 +1,8 @@
 import numpy as np
 import GPy
 from scipy.linalg import solve_triangular
-from sklearn.ensemble import RandomForestClassifier
+#from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 import itertools
 
 cor_size = 0.2
@@ -75,8 +76,10 @@ for run in range(num_sims):
     Y = np.asarray([mreg(X[i,:],R[i]) + sig_n*np.random.normal(0,1) for i in range(n)])
     Z = np.column_stack((X,R))
 
-    RF = RandomForestClassifier().fit(X,np.ravel(R))
-    prop = RF.predict_proba(X)[:,1]
+    LR = LogisticRegression(solver='lbfgs').fit(X,np.ravel(R))
+    prop = LR.predict_proba(X)[:,1]
+#    RF = RandomForestClassifier().fit(X,np.ravel(R))
+#    prop = RF.predict_proba(X)[:,1]
     prop = np.asarray([max(min(prop[i],1.0-PS_bound),PS_bound) for i in range(n)])
 
     k = GPy.kern.RBF(d+1,active_dims=list(range(d+1)),name='rbf',ARD=True)
