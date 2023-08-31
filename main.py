@@ -1,22 +1,22 @@
 import numpy as np
 import GPy
 from scipy.linalg import solve_triangular
-#from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 import itertools
 
 cor_size = 0.2
 jitter = 1e-9
 PS_bound = 0.1
-num_sims = 200
+num_sims = 20
 num_post = 2000
 cred = 0.95
 
-d=10
+d=100
 n=500
 sig_n = 1.0
 
-M_upper = 40
+M_upper = 9
 
 # for each m, keep cumulative sum of absolute error for mean, squared error for mean,
 # 95% credible interval width, squared 95% credible interval width.
@@ -25,44 +25,65 @@ ATE_stats = np.zeros((M_upper,6))
 
 ATE_stats_n = np.zeros(6)
 
-x_points = np.zeros((100,10))
-x_weights = np.zeros(100)
+# for each m, keep cumulative sum of distance from sparse posterior mean to full posterior mean,
+# distance from sparse posterior standard deviation to full posterior standard deviation
+#ATE_sparse_full = np.zeros((M_upper,2))
 
-r_points = np.zeros((100,10))
-r_weights = np.zeros(100)
+#x_points = np.zeros((100,10))
+#x_weights = np.zeros(100)
 
-f = open("Points and weights","r")
-for i in range(100):
-    l = f.readline()
-    (p,_,w) = l.partition(";")
-    x_strs = p.split(",")
-    for j in range(10):
-        x_points[i,j] = float(x_strs[j])
+#r_points = np.zeros((100,10))
+#r_weights = np.zeros(100)
 
-    x_weights[i] = float(w)
+#f = open("Points and weights","r")
+#for i in range(100):
+#    l = f.readline()
+#    (p,_,w) = l.partition(";")
+#    x_strs = p.split(",")
+#    for j in range(10):
+#        x_points[i,j] = float(x_strs[j])
 
-f.readline()
+#    x_weights[i] = float(w)
 
-for i in range(100):
-    l = f.readline()
-    (p,_,w) = l.partition(";")
-    r_strs = p.split(",")
-    for j in range(10):
-        r_points[i,j] = float(r_strs[j])
+#f.readline()
 
-    r_weights[i] = float(w)
+#for i in range(100):
+#    l = f.readline()
+#    (p,_,w) = l.partition(";")
+#    r_strs = p.split(",")
+#    for j in range(10):
+#        r_points[i,j] = float(r_strs[j])
+
+#    r_weights[i] = float(w)
+
+#def prop_score(x):
+#    y = 0
+#    for i in range(100):
+#        y += r_weights[i]*np.linalg.norm(x-r_points[i,:])**0.3
+#    return 20/(20+y)
+
+#def mreg(x,r):
+#    y = 0
+#    for i in range(100):
+#        y += x_weights[i]*np.linalg.norm(x-x_points[i,:])**0.4
+#    return y + r*(1-0.5*np.cos(2*np.pi*x[0]))
 
 def prop_score(x):
-    y = 0
-    for i in range(100):
-        y += r_weights[i]*np.linalg.norm(x-r_points[i,:])**0.3
-    return 20/(20+y)
+    if isinstance(x,(list,np.ndarray)):
+        if len(x)>=5:
+            val = x[0]+(x[1]-0.5)**2 + x[2]**2 - 2*np.sin(2*x[3]) + np.exp(-x[4]) - np.exp(-1.0) + 1.0/6.0
+            if val > 0:
+                return 1.0
+            else:
+                return 0.0
 
 def mreg(x,r):
-    y = 0
-    for i in range(100):
-        y += x_weights[i]*np.linalg.norm(x-x_points[i,:])**0.4
-    return y + r*(1-0.5*np.cos(2*np.pi*x[0]))
+    if isinstance(x,(list,np.ndarray)):
+        if len(x)>=5:
+            val = np.exp(-x[0])+x[1]**2+x[2]+np.cos(x[4]) + r*(1+2*x[1]*x[4])
+            if x[3]>0:
+                val = val+1.0
+            return val
 
 ATE_true = 1.0
 print("ATE = ",ATE_true)
@@ -149,6 +170,7 @@ for run in range(num_sims):
     sdATE_n = np.std(ATE_n)
 
     ATE_stats_n[0] += abs(meanATE_n-ATE_true)
+    print(abs(meanATE_n-ATE_true))
     ATE_stats_n[1] += (meanATE_n-ATE_true)**2
     low = np.quantile(ATE_n,(1-cred)/2)
     up  = np.quantile(ATE_n,(1+cred)/2)
@@ -159,7 +181,8 @@ for run in range(num_sims):
     if low <= 0 and up >= 0:
         ATE_stats_n[5] += 1
 
-    for m in range(1,M_upper+1):
+    for q in range(1,M_upper+1):
+        m = q*50
         mean_left_m = mean_left[:,n-m:]
         mean_right_m = mean_right[n-m:]
         K_Lm_m = K_Lm_ms[:,n-m:]
@@ -175,16 +198,19 @@ for run in range(num_sims):
             GP_draw = meanLm + np.matmul(Chol_Lm,np.random.normal(0,1,(n,1)))
             ATE[i] = np.dot(DP_weights,GP_draw)
 
-        ATE_stats[m-1,0] += abs(np.mean(meanLm)-ATE_true)
-        ATE_stats[m-1,1] += (np.mean(meanLm)-ATE_true)**2
+#        ATE_sparse_full[m-1,0] += abs(np.mean(meanLm)-np.mean(meanATE_n))
+#        ATE_sparse_full[m-1,1] += abs(np.std(ATE)-sdATE_n)
+
+        ATE_stats[q-1,0] += abs(np.mean(meanLm)-ATE_true)
+        ATE_stats[q-1,1] += (np.mean(meanLm)-ATE_true)**2
         low = np.quantile(ATE,(1-cred)/2)
         up  = np.quantile(ATE,(1+cred)/2)
-        ATE_stats[m-1,2] += up-low
-        ATE_stats[m-1,3] += (up-low)**2
+        ATE_stats[q-1,2] += up-low
+        ATE_stats[q-1,3] += (up-low)**2
         if ATE_true >= low and ATE_true <= up:
-            ATE_stats[m-1,4] += 1
+            ATE_stats[q-1,4] += 1
         if low <= 0 and up >= 0:
-            ATE_stats[m-1,5] += 1
+            ATE_stats[q-1,5] += 1
 
 print("full posterior:")
 mean_mean = ATE_stats_n[0]/num_sims
@@ -197,7 +223,7 @@ print("Average coverage: {} Average Type II error: {}".format(ATE_stats_n[4]/num
 print()
 
 for m in range(1,M_upper+1):
-    print("m = ",m)
+    print("m = ",50*m)
     mean_mean = ATE_stats[m-1,0]/num_sims
     mean_standard_deviation = np.sqrt(ATE_stats[m-1,1]/num_sims-mean_mean**2)
     print("Average absolute error of posterior mean: {} plus minus {}".format(mean_mean,mean_standard_deviation))
@@ -206,3 +232,9 @@ for m in range(1,M_upper+1):
     print("Average CI size: {} plus/min {}".format(width_mean,width_standard_deviation))
     print("Average coverage: {} Average Type II error: {}".format(ATE_stats[m-1,4]/num_sims,ATE_stats[m-1,5]/num_sims))
     print()
+
+#for m in range(1,M_upper+1):
+#    print("m = ",m)
+#    print("average distance from sparse posterior mean to full posterior mean: ",ATE_sparse_full[m-1,0]/num_sims)
+#    print("average distance from sparse posterior s.d. to full posterior s.d.: ",ATE_sparse_full[m-1,1]/num_sims)
+#    print()
