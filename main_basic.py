@@ -14,20 +14,20 @@ num_sims = 10
 num_post = 2000
 cred = 0.95
 
-d=2
+d=4
 n=500
 sig_n = 1.0
 
-M_upper = 5
+M_upper = 10
 
 ATE_stats = np.zeros((M_upper,6))
 ATE_stats_n = np.zeros(6)
 
 def prop_score(x):
-    return 0.8 - 0.2*np.linalg.norm(x-np.array([0.5,0.5]))
+    return 0.8 - 0.6*np.linalg.norm(x-np.array([0.5,0.5,0.5,0.5]))
 
 def mreg(x,r):
-    return np.linalg.norm(x-np.array([0.6,0.5])) + r
+    return np.linalg.norm(x-np.array([0.6,0.6,0.6,0.6]))**0.6 + r*(1-0.5*np.cos(2*np.pi*x[0]))
 
 ATE_true = 1.0
 
@@ -122,10 +122,10 @@ for run in range(num_sims):
     covLm_n = np.zeros((n,n))
 
     for i in range(n):
-        meanLm_n[i] = float(PosteriorMean_BB_n[2*i+1]) - float(PosteriorMean_BB_n[2*i])
+        meanLm_n[i] = PosteriorMean_BB_n[2*i+1] - PosteriorMean_BB_n[2*i]
         for j in range(i+1):
-            covLm_n[i,j] = (float(PosteriorCov_BB_n[2*i+1,2*j+1])-float(PosteriorCov_BB_n[2*i+1,2*j])
-                                 -float(PosteriorCov_BB_n[2*i,2*j+1])+float(PosteriorCov_BB_n[2*i,2*j]))
+            covLm_n[i,j] = (PosteriorCov_BB_n[2*i+1,2*j+1]-PosteriorCov_BB_n[2*i+1,2*j]
+                                 -PosteriorCov_BB_n[2*i,2*j+1]+PosteriorCov_BB_n[2*i,2*j])
             covLm_n[j,i] = covLm_n[i,j]
 
     min_eig_n = np.real(min(np.linalg.eigvals(covLm_n)))
